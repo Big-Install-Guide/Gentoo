@@ -1,0 +1,116 @@
+// Settings
+:title: Big Install Guide
+:reproducible:
+:nofooter:
+:tabsize: 4
+:imagesdir: imgs
+:icons: font
+:stylesdir: css
+:stylesheet: asciidoctor.css
+:experimental:
+
+TIP: *Terms* +
+
+[discrete]
+=== Follow Gentoo Linux installation guide in order (recommended)
+link:Gentoo.html[From start to finish; single-page view.]
+
+Unicode symbols
+```
+⥣
+Up arrow
+⥥
+Down arrow
+⥢
+Left arrow
+⥤
+Right arrow
+↵ 
+Enter
+↹ 
+Tab
+```
+=== Guide to the guide
+
+
+[discrete]
+==== Non-unicode symbols
+- ```*****``` +
+Matches any zero or more characters after the wildcard. +
+- ```**?**``` +
+Matches any one character it's in place of, or is used to select in a list of desired characters if one in the list occurs: ?(neg|pos). +
+- ```**\**``` + 
+Used as a delimiter. Try ```echo "test" > testfile01```, the " symbols are removed; ```echo \"\test\"\ > testfile01``` maintains the " symbols.
+
+==== Running commands
+- `# command` +
+Command requires superuser to work as intended, or at all.
+
+- `$ command` +
+Can only be ran non-privileged.
+
+- `$# command` +
+Can be ran privileged or non-privileged; same result.
+
+- `$/# command` +
+Different use cases for running privileged, or non-privileged.
+
+- `# $(example)` +
+Still ran privileged.
+
+- `$ $(example)` +
+Still ran non-privileged.
+
+TTY navigation
+```
+Alt Left/Right arrow keys
+- Switch to TTY in a given arrow key direction.
+Ctrl Alt F1
+- Switch to TTY 1, goes up to 6 (F6) by default, useful +
+for jumping to a specific TTY while in a unresponsive WM, so the WM can +
+then be terminated.
+Home
+- Jump to start of line.
+End
+- Jump to end of line.
+```
+[discrete]
+==== Neovim keybindings
+- ESC +
+Exit current mode.
+- LSHIFT + d +
+Delete text after cursor on current line.
+- i +
+Enter insert mode (must be no in mode/exit all other modes).
+
+NOTE: If a letter is capitalized, it requires holding down the Shift key.
+
+Insert mode:
+v
+- Visual (select) mode 
+h
+- Move cursor left
+j
+- Move cursor down
+k
+- Move cursor up
+l
+- Move cursor right
+y$
+- Copy from cursor, to end of line
+$p
+- Paste at end of line
+dd
+- Delete current line
+dw
+- Delete word
+cw
+- Delete word, then go into Insert Mode
+:w 
+- Write (save) file
+:wq
+- Write then quit
+G
+- Jump to bottom of file
+gg
+- Jump to top of file
