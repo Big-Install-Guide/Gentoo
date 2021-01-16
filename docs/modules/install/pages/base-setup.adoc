@@ -1,0 +1,998 @@
+
+=== Gentoo Disk Setup
+
+`# zsh -c "echo performance > /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor"` +
+Force CPU frequency to the maximum at all times to lower compilation time.
+
+`$ lsblk -f` +
+List partitions and their assigned [filesystem & label](from the -f parameter). +
+`$ lsblk` +
+Even if unmounted, show the max partition sizes; for additional perspective.
+
+[%collapsible]
+.ATA Secure Erase
+NOTE: Issues the "SECURITY_ERASE" or "SECURITY_ERASE_ENHANCED" instruction to the targeted SSD's firmware, marking all the SSD's cells as empty, removing all data and potentially restoring the SSD to factory default write performance.
+
+
+WARNING: Do not attempt a Secure Erase for SSDs connected through any USB adapter or SAS/RAID card!
+* After a successful Secure Erase, `lsblk` will still show the same partition tables. Secure Erase does not tell `lsblk` that a disk has been wiped, and is using old information; the `gdisk` or `fdisk` tool will correctly show that the disk is empty.
+* -I is a capital i; some fonts don't display this correctly.
+
+`# hdparm -I /dev/EXAMPLE | grep -Ei "model|enabled|master|not|locked|frozen|erase"` +
+Check if the SSD is frozen, has a password, and if Secure Erase can be ran on it.
+
+`# echo -n mem > /sys/power/state` +
+The SSD cannot be erased while frozen, unfreeze it and wait 20 seconds; if the screen doesn't go back on, press the power button.
+
+`# hdparm --user-master u --security-set-pass Kero /dev/EXAMPLE` +
+There is no need to change "Kero", this password will be discarded after a successful Secure Erase.
+
+`# hdparm --user-master u --security-erase-enhanced Kero /dev/EXAMPLE` +
+If the enhanced mode is not supported, use '--security-erase' instead.
+
+`# hdparm -I /dev/EXAMPLE | grep -Ei "model|enabled|master|not"` +
+Check if there is still a master password assigned.
+
+`# hdparm --security-disable Kero /dev/EXAMPLE` +
+If Secure Erase succeeded, the master password is removed; if not (or Secure Erase failed), remove the password manually.
+
+___
+</details>
+
+Has to be done if ATA Secure Erase wasn't used. +
+`# wipefs -a /dev/EXAMPLE` +
+Clears the partition tables for a specified disk. 
+
+The fastest method for erasing files (for non-SSDs), while providing protection against disk forensics; running on an SSD will shorten its lifespan slightly. +
+`# cryptsetup open --type plain -d /dev/urandom /dev/EXAMPLE cleanit` +
+`# cat /dev/zero > /dev/mapper/cleanit` +
+`# cryptsetup close cleanit`
+___
+
+`$# df -ha | grep efi` +
+If efivarsfs is not present, support for UEFI is missing; refer to your motherboard's manual if this is the case.
+
+*[!]* If you fuck up, q ↵ to exit; nothing will happen if the partition tables haven't been written to disk yet.
+
+<details><summary>UEFI
+
+> *GPT is default.*
+</summary>
+
+`# gdisk /dev/EXAMPLE` +
+Specify the disk to create partition tables on.
+
+Ensure the selected disk is empty.
+```
+Partition table scan:
+  MBR: not present
+  BSD: not present
+  APM: not present
+  GPT: not present
+
+Command: p ↵
+
+<REDACTED>
+
+Number  Start (sector)    End (sector)  Size       Code  Name
+```
+Create the initial partition table.
+```
+Command: o ↵
+This option deletes all partitions and creates a new protective MBR.
+Proceed? (Y/N): y ↵
+```
+Partition 1 - Allocate 60 mebibytes for the /efi directory (unencrypted).
+```
+Command: n ↵
+Partition number: ↵
+First sector: ↵
+Last sector: +60M ↵
+Hex code or GUID: ef00 ↵
+```
+Partition 2 - Allocate rest of the disk for the LUKS partition, which will later contain LVM2-based (virtual) partitions.
+> *The LUKS (8309) Hex code isn't used as it's too specific for a partition that contains no filesystem (on the outside); da00 (Non-FS Type) currently does not exist in gptfdisk (gdisk).*
+```
+Command: n ↵
+Partition number: ↵
+First sector: ↵
+Last sector: ↵
+Hex code or GUID: ↵
+```
+*[!] Write the new partition tables scheme to disk.*
+```
+Command: w ↵
+Do you want to proceed? (Y/N): y ↵
+```
+</details>
+
+*[!] MBR instructions are unverified, and is not currently full disk encryption as UEFI is.*
+
+<details><summary>MBR with GPT partitions
+
+> *GPT supports disks above 2TB capacity, 128 primary partitions instead of 4, and protects against boot record corruption.*</summary>
+
+`# gdisk /dev/EXAMPLE` +
+Specify the disk to create partition tables on.
+
+Ensure the selected disk is empty.
+```
+Partition table scan:
+  MBR: not present
+  BSD: not present
+  APM: not present
+  GPT: not present
+
+Command: p ↵
+
+<REDACTED>
+
+Number  Start (sector)    End (sector)  Size       Code  Name
+```
+Create the initial partition table.
+```
+Command: o ↵
+This option deletes all partitions and creates a new protective MBR.
+Proceed? (Y/N): y ↵
+```
+Partition 1 - Reserve 1 mebibyte for GRUB's core.img at 1 mebibyte after the start of disk sectors.
+```
+Command: n ↵
+Partition number: ↵
+First sector: +1M ↵
+Last sector: +1M ↵
+Hex code or GUID: ef02 ↵
+```
+Partition 2 - Allocate rest of the disk for the LUKS partition, which will later contain LVM2-based (virtual) partitions.
+> *The LUKS (8309) Hex code isn't used as it's too specific for a partition that contains no filesystem (on the outside); da00 (Non-FS Type) currently does not exist in gptfdisk (gdisk).*
+```
+Command: n ↵
+Partition number: ↵
+First sector: ↵
+Last sector: ↵
+Hex code or GUID: ↵
+```
+*[!] Write the new partition tables scheme to disk.*
+```
+Command: w ↵
+Do you want to proceed? (Y/N): y ↵
+```
+</details>
+
+<details><summary>MBR</summary>
+
+`# fdisk /dev/EXAMPLE` +
+Specify the disk to create partition tables on.
+
+Ensure the selected disk is empty.
+```
+Device does not contain a recognized partition table.
+Created a new DOS disklabel with disk identifier 0x85db1a7b.
+
+Command: p ↵
+<REDACTED>
+```
+Create the initial partition table.
+```
+Command (m for help): o ↵
+```
+Partition 1 - Allocate 200 (+1 for GRUB's core.img) mebibytes for the /boot directory.
+```
+Command: n ↵
+Select: ↵
+Partition number: ↵
+First sector: ↵
+Last sector: +201M ↵
+```
+Partition 2 - Allocate rest of the disk for the LUKS partition, which will later contain LVM2-based (virtual) partitions.
+```
+Command: n ↵
+Select: ↵
+Partition number: ↵
+First sector: ↵
+Last sector: ↵
+
+Command: t ↵
+Partition number (1,2, default 2): ↵
+Hex code: da ↵
+```
+*[!] Write the new partition tables scheme to disk.*
+```
+Command (m for help): w ↵
+```
+</details>
+
+*Disk encryption* +
+Protects against data extraction from thieves, adversaries, and so on. +
+Using this is intended, and all further instructions will assume its usage.
+
+> *12 characters minimum for the LUKS1 password, with lowercase and uppercase letters, numbers, and symbols; try to use all of them, and in a randomized fashion. +
+[!] Do not store the password on any electronic device; if you must store the password, write it down and have more than one copy in a secure place (or somewhere in your house, determine the threat model for yourself to see if that's acceptable). +
+Example: p8^kB2wX%GjC (12 character length, 78.84 entropy)*
+
+`# cryptsetup -M luks1 -h whirlpool -s 512 -i 3000 -v luksFormat /dev/EXAMPLE2` +
+GRUB2 supports LUKS2 partially, but I couldn't get it working; -h -s -i are set to trade some speed for security to make up for using LUKS1.
+
+`# cryptsetup open /dev/EXAMPLE2 luksdisk` +
+Encrypted blocks don't mount automatically after creation.
+
+Creating the LVM2 snapshot (virtual partition) layout. +
+`# pvcreate /dev/mapper/luksdisk` +
+`# vgcreate Gentoo /dev/mapper/luksdisk` +
+`# lvcreate -l 100%FREE Gentoo -n root`
+
+___
+[UEFI] Make VFAT filesystem for the EFI System partition. +
+`# mkfs.fat -F 32 /dev/EXAMPLE1`
+
+*Choose the root filesystem with care.*
+
+XFS' performance is best when handling large files, and has higher average performance compared to ext4; XFS works well and is made for any type of hard disk (SSD or not).
+
+* Downsides: +
+Inability to resize partitions (not the case for systemd distros). +
+inode64 usage for >1TB partitions. inode64 leads to the malfunctioning of some 32-bit software (though few), Steam is a notable example: https://github.com/ValveSoftware/Source-1-Games/issues/1685
+
+`# mkfs.xfs /dev/Gentoo/root`
+
+ext4 is the most popular journaling filesystem on Linux. A jack of all trades, with no major downsides. It also has the best recovery tools, so data loss from software (not hardware failure) is easy to recover. +
+`# mkfs.ext4 /dev/Gentoo/root`
+
+F2FS is made for maximizing the capabilities of flash-based storage, such as SSDs, USBs, and microSD cards; flash storage with bad controllers will perform much quicker with F2FS than other filesystems, so use it for USBs and microSD cards.
+* Downsides: +
+fsck being insistent on scanning for file consistency; expect longer boot times: https://wiki.archlinux.org/index.php/F2FS#Long_running_fsck_delays_boot  +
+Not as mature as XFS and ext4 are.
+
+`# mkfs.f2fs /dev/Gentoo/root`
+
+=== Pre-chroot
+
+`# mkdir /mnt/gentoo` +
+`# mount /dev/Gentoo/root /mnt/gentoo` +
+`$# cd /mnt/gentoo`
+
+[systemd] +
+`# links https://bouncer.gentoo.org/fetch/root/all/releases/amd64/autobuilds/current-stage3-amd64-systemd/` +
+[OpenRC] +
+`# links https://bouncer.gentoo.org/fetch/root/all/releases/amd64/autobuilds/current-stage3-amd64/`
+> *[systemd & OpenRC] +
+Download* `stage3-amd64-*.tar.*.DIGESTS.asc` *and* `stage3-amd64-*.tar.*` +
+*[OpenRC] +
+Do not use nomultilib. +
+Nomultilib's minuscule memory and disk usage reduction does not outweigh the consequences of needing a single 32-bit package or more, and will quickly turn the installation into a nightmare.*
+
+> *If DIGESTS.asc is shown as its text, press (in sequence): Esc f v ↵, then press Backspace to go back to the previous page. +
+If the file extensions cannot be seen, or the download is slow, exit Links and use a different random mirror. +
+↹ = Tab key; utilize auto-completion.*
+
+`$# gpg --keyserver hkps://keys.gentoo.org --recv-keys 13EBBDBEDE7A12775DFDB1BABB572E0E2D182910`  +
+`$# gpg --fingerprint 13EBBDBEDE7A12775DFDB1BABB572E0E2D182910` +
+Should output..
+```
+pub   rsa4096 2009-08-25 [SC] [expires: 2021-01-01]
+      13EB BDBE DE7A 1277 5DFD  B1BA BB57 2E0E 2D18 2910
+uid           [ unknown] Gentoo Linux Release Engineering (Automated Weekly Release Key) <releng@gentoo.org>
+sub   rsa2048 2019-02-23 [S] [expires: 2021-01-01]
+```
+`$# gpg --verify ↹.↹`
+> *Ignore the warning, since signing this Gentoo GPG key with your own is unnecessary for checking authenticity.*
+
+`$# cat ↹.↹`  +
+`$# openssl dgst -r -whirlpool ↹`
+
+`# tar xpf ↹ --xattrs-include='*.*' --numeric-owner` +
+Extract a Gentoo stage3 archive with its correct permissions intact.
+
+`# cp -L /etc/resolv.conf etc/` +
+Re-use the retrieved network DNS information for Gentoo as well. 
+
+Enter the newly bootstrapped Gentoo Linux. +
+`# curl https://framagit.org/3/BIG/-/raw/master/scripts/chroot.sh -O` +
+`# sh chroot.sh` +
+`# source /etc/profile`
+
+=== Chroot (change root)
+[UEFI] Make directory for the unencrypted /efi, then mount it. +
+`# mkdir /efi` +
+`# mount /dev/EXAMPLE1 /efi`
+
+`# ln -sf /proc/self/mounts /etc/mtab` +
+"Upstream only supports the /etc/mtab file being a symlink to /proc/self/mounts. Not creating this symlink will also cause problems with mount ([bug #434090](https://bugs.gentoo.org/show_bug.cgi?id=434090)) and df ([bug #477240](https://bugs.gentoo.org/show_bug.cgi?id=477240)). In the past, some utilities wrote information (like mount options) into /etc/mtab and thus it was supposed to be a regular file. Nowadays all software is supposed to avoid this problem."
+
+[systemd] +
+`# systemd-machine-id-setup` +
+Allows journald (systemd's journaling/logging) to work, and prevents strange behavior with networkd. Examples: Interfaces not coming UP (active), or local IP addresses not being assigned while UP.
+
+`# emerge-webrsync` +
+Ignore the missing /var/db/repos/gentoo/ location warning, the required location will automatically be created.
+
+`# eselect news read` +
+Since this is a new install, information here likely doesn't matter.
+
+`# emerge dev-vcs/git` +
+Git is the version control system used to update Gentoo ebuilds (packages), and is also used to pull (download) this repository's files.
+
+`# git clone https://framagit.org/3/BIG` +
+`# cp /BIG/make.conf /etc/portage`
+
+`# emerge -a neovim` +
+By default, '-a' (ask) has to be used to allow dispatch-conf to be notified that there is desired changes. +
+Neovim is a modal text editor that allows much easier modification of files, and is used in this guide for modifying files that require superuser access (Spacemacs for unprivileged access later on).
+
+`# dispatch-conf` +
+Check the changes for anything out of place (skip, edit, or zap if needed), then accept Portage's desired changes; press ⥣ twice then ↵ to run the previous command again.
+
+`$# gcc -'###' -march=native /usr/include/stdlib.h` +
+Retrieving the optimal -march, and -mtune strings for the current CPU. +
+`$# nproc` +
+Output the total number of CPU logical cores.
+
+`# nvim /etc/portage/make.conf` +
+Configuring Portage (package manager) make settings.
+
+<details><summary>LC_TIME list
+
+> *Every English locale with a different time and/or date formatting.*</summary>
+
+|===
+| Locale | Short Date | Long Date
+| en_AU | d/m/yy | Friday, 1 May 2020 11:59 PM 
+| en_BW | dd/mm/yy | Friday, 01 May 2020 23:59 
+| en_CA | yyyy-mm-dd | Friday, May 1, 2020 11:59 PM 
+| en_DK | dd/mm/yyyy | Friday, 1 May 2020 23.59 
+| en_GB | dd/mm/yyyy | Friday, 1 May 2020 23:59 
+| en_HK | d/m/yyyy | Friday, 1 May 2020 11:59 PM 
+| en_IE | dd/mm/yyyy | Friday 1 May 2020 23:59 
+| en_IN | dd/mm/yy | Friday, 1 May, 2020 11:59 PM 
+| en_NZ | d/mm/yy | Friday, 1 May 2020 11:59 PM
+| en_PH | dd/mm/yyyy | Friday, 1 May 2020 11:59 PM
+| en_US | m/d/yy | Friday, May 1, 2020 11:59 PM
+| en_ZA | yyyy/mm/dd | Friday, 1 May 2020 23:59
+| en_ZW | d/m/yyyy | Friday, 01 May 2020 23:59
+|===
+
+</details>
+
+Setting locale and character sets. +
+`# nvim /etc/locale.gen` +
+Example: 'en_US.UTF-8' for language, 'en_GB.UTF-8' for date & time formatting.
+
+`# locale-gen` +
+Locale and character set generation.
+
+> `LC_COLLATE=C` *keeps the default way of sorting regular expressions; dotfiles (.example_file) first, followed by uppercase, then lowercase filenames.* +
+`LC_TIME` *controls the date formatting, and determines if 12-hour or 24-hour time is used.* +
+`LC_MEASUREMENT` *controls whether Imperial or Metric, `C` is Metric.*  
+
+[systemd] +
+`# nvim /etc/locale.conf` +
+[OpenRC] +
+`# nvim /etc/env.d/02locale` +
+Enforce the new locale and character sets.
+```
+LANG=en_US.UTF-8
+LC_COLLATE=C
+LC_TIME=en_GB.UTF-8
+LC_MEASUREMENT=C
+```
+[systemd] +
+`# echo tux > /etc/hostname` +
+[OpenRC] +
+`# echo hostname= \"\tux\"\ > /etc/conf.d/hostname` +
+Don't use your real name, or any [hacker related names](https://web.archive.org/web/20180101131849/https://github.com/ValveSoftware/Source-1-Games/issues/2475), prefer to keep it short and commonly used.
+
+`# env-update && source /etc/profile` +
+Reload the environment to apply new locale settings; stops specific warnings and/or errors during kernel builds (and some software) caused by the previous locale settings.
+
+`# emerge ccache eix` +
+Compiler Cache saves time if an ebuild fails to compile, as the problem(s) can be addressed quicker. +
+Eix is used as a search/index/sorting tool for ebuilds, and is far more efficient at it than Portage.
+
+Optionally, /var/cache/ccache can be replaced later with different directory such as /mnt/hdd/.ccache to leverage a disk mounted on /mnt/hdd. +
+`# mkdir -p /var/cache/ccache` +
+`# chown root:portage /var/cache/ccache` +
+`# chmod 2775 /var/cache/ccache` +
+`# cp /BIG/ccache.conf /var/cache/ccache`
+
+`# nvim /var/cache/ccache/ccache.conf` +
+Change the 'max_size' (10 GiB by default) if desired.
+
+`# mkdir -p /etc/portage/repos.conf` +
+`# cp /BIG/gentoo.conf /etc/portage/repos.conf`
+
+`# rm -r /var/db/repos/gentoo` +
+Eix's sync will fail if the contents of this directory used rsync instead of Git.
+
+`# eix-sync` +
+Fetch the latest versions of ebuilds from only Gentoo's official overlay (for now); eix is immediately informed of the changes, which will be used as the package (ebuild) search tool.
+
+`# emerge cpuid2cpuflags eselect-repository gentoolkit`
+
+`# eselect repository enable libressl` +
+Fixes a total of 26 packages currently; used to be significantly more, but have been merged into mainline Gentoo over the years.
+
+`# emerge --sync libressl` +
+Fetch the latest versions of ebuilds from only the LibreSSL overlay.
+> *If you are asked to update Portage, do so with the command Portage told you to run.*
+
+`# eix-update` +
+Inform Eix of the changes as `eix-sync` was not used, since `eix-sync` can only update all overlays at once.
+
+`# echo "*/* $(cpuid2cpuflags)" > /etc/portage/package.use/00cpuflags` +
+Ensure all compatible CPU_FLAGS are enabled for compilations executed by Portage.
+
+`# cp /BIG/package.mask /etc/portage` +
+`# cp /BIG/package.license /etc/portage` +
+`# cp -R /BIG/package.use /etc/portage` +
+`# cp /BIG/package.accept_keywords /etc/portage`
+
+`# emerge -C openssl` +
+Remove OpenSSL to replace with LibreSSL. +
+`# emerge -av @preserved-rebuild` +
+Rebuild packages previously using OpenSSL, as per Portage's demands; this is not handled by -avuDN @world.
+
+Utilize the package.use and package.accept_keywords changes for the two primary compilation tools now. +
+`# emerge -a1 binutils-libs binutils gcc`
+
+`$# eselect binutils list`
+```
+ [1] x86_64-pc-linux-gnu-2.33.1 *
+ [2] x86_64-pc-linux-gnu-2.34
+```
+`# eselect binutils set 2` +
+`# . /etc/profile` +
+`$# eselect gcc list`
+```
+ [1] x86_64-pc-linux-gnu-9.2.0 *
+ [2] x86_64-pc-linux-gnu-9.3.0
+```
+`# eselect gcc set 2` +
+`# emerge -1 libtool`
+
+Include as needed. +
+Filesystems: `xfsprogs`, `f2fs-tools`, `ntfs3g`, `dosfstools` (FAT/VFAT/FAT32). +
+[PC Card (PCMICA)](https://en.wikipedia.org/wiki/PC_card) support: `pcmciautils` +
+`iwd` and `wpa_supplicant` (incase iwd is incompatible) for wireless connection support. +
+[systemd]: Include `dbus-broker`. +
+[OpenRC]: Include `syslog-ng`. +
+[Mergelist]: `graphical` is meant for desktop/laptop usage, `minimal` is for server use. +
+`# emerge -avuDN @world $(cat /BIG/graphical-mergelist) example-package` +
+Ask, Verbose, Changed Use, Deep, New USE; applies to both the world set, and manually specified packages (located in the 'merge-list' file).
+
+While waiting, better understand some of Gentoo's innards; if you do not read these, you will have a very difficult time when encountering a problem.
+1. https://wiki.gentoo.org/wiki//etc/portage/make.conf
+1. https://wiki.gentoo.org/wiki//etc/portage/package.use  
+1. https://wiki.gentoo.org/wiki//etc/portage/package.mask  
+1. https://wiki.gentoo.org/wiki//etc/portage/package.accept_keywords 
+1. https://wiki.gentoo.org/wiki//etc/portage/profile/package.provided
+1. https://dev.gentoo.org/~zmedico/portage/doc/man/dispatch-conf.1.html
+1. https://wiki.gentoo.org/wiki/Eselect
+1. https://wiki.gentoo.org/wiki/Eix
+1. https://dev.gentoo.org/~zmedico/portage/doc/man/emaint.1.html
+1. https://wiki.gentoo.org/wiki/Kernel
+1. https://wiki.gentoo.org/wiki//etc/portage/patches
+1. https://devmanual.gentoo.org/index.html
+
+`# grpck` +
+`# grpconv` +
+sys-apps/shadow requires these to utilize the bcrypt hashing algorithm (more secure password storage); read the manpage for grpck and grpconv for exact information.
+`# emerge --config sys-procress/fcron`
+
+[systemd] +
+`# sh /BIG/scripts/systemd.sh` +
+[OpenRC] +
+`# cp /BIG/conf.d/zram-init /etc/conf.d/` +
+`$# free -m | rg -o '[[:digit:]]+' | sed 1q` +
+Show the total amount of available DRAM, divide this value in other ways than half if desired (default used for swap is half). +
+`# nvim /etc/conf.d/zram-init` +
+`# sh /BIG/scripts/openrc.sh` +
+Enable the services listed in the script. +
+`# nvim /etc/rc.conf` +
+Enable OpenRC's logging, and startup OpenRC services in parallel (nowadays this is very reliable).
+```
+rc_parallel="YES"
+rc_logger="YES"
+```
+
+`# eselect pinentry set pinentry-gtk-2` +
+Set GPG's password creation prompt to use GTK2 (graphical) instead of curses.
+___
+`$# ip a` +
+Look for an interface with an MTU of <=1500.
+
+<details><summary>dhcpcd</summary>
+
+`# emerge dhcpcd` +
+`# nvim /etc/dhcpcd.conf`
+```
+# Disable ARP probing to significantly lower the time it takes for dhcpcd to lease IPs and DNS'; ARP probing verifies if an IP is already used.
+noarp
+```
+DHCP (default) +
+[systemd] +
+`# systemctl enable dhcpcd` +
+[OpenRC] +
+`# rc-update add dhcpcd default`
+
+Static +
+`$# ip a` +
+Check what the default gateway range is, such as "brd 192.168.1.255" (192.168.1.1-192.168.1.255). +
+`# nvim /etc/dhcpcd.conf`
+```
+static ip_address=192.168.1.149/24
+static routers=192.168.1.1
+static domain_name_servers=192.168.1.1
+```
+___
+</details>
+
+<details><summary>netifrc
+
+> *OpenRC only, don't use for wireless connections; if using QEMU, this is unsupported, use dhcpcd instead.*
+</summary>
+
+`$# cd /etc/init.d` +
+`# ln -s net.lo net.eth0` +
+Replace eth0 with your interface if needed.
+
+*{Static} Wired network* +
+`$# ip a` +
+Check what the default gateway range is, such as "brd 192.168.1.255" (192.168.1.1-192.168.1.255). +
+`# nvim /etc/conf.d/net`
+```
+# CIDR notation; /24 = 1 IPv4 address.
+config_eth0="192.168.1.101/24"
+routes_eth0="default via 192.168.1.1"
+# The DNS and its fallback DNS(es) should be handled by the router.
+# If your router doesn't use dnscrypt-proxy2, consider using it.
+dns_servers_eth0="192.168.1.1"
+```
+*{DHCP} Wired network*
+```
+config_eth0="dhcp"
+```
+`# rc-update add net.eth0 default` +
+Start 'eth0' network at boot (but not in the boot runlevel).
+___
+</details>
+
+.systemd-networkd
+[%collapsible]
+====
+Pick either DHCP or Static, not both.
+
+.DHCP
+`# nvim /etc/systemd/network/20-dhcp.network`
+```
+[Match]
+Name=en*
+[Network]
+DHCP=yes
+```
+.Static
+`$# ip a` +
+Check what the default gateway range is, such as "brd 192.168.1.255" (from 192.168.1.1 to 192.168.1.255). +
+`# nvim /etc/systemd/network/20-static.network` +
+[?] If the 'Gateway' IP is changed, the 'Address' IP has to be changed. If using the router's DNS setting, update 'DNS' as well.
+
+[NOTE]
+.Supported CIDR
+=====
+* 192.168.0.0/16
+* 172.16.0.0/12
+* 10.0.0.0/8
+=====
+
+CAUTION: DHCP has the potential to lease your static IP to another device if allowed; set the DHCP Server on your router to only allow from 192.168.1.100 to 192.168.1.254 (with static IPs assigned below 192.168.1.100).
+
+```
+[Match]
+Name=en*
+[Network]
+Address=192.168.1.99/24
+Address=fd00::/8
+Gateway=192.168.1.1
+Gateway=
+DNS=192.168.1.1
+DNS=
+```
+Run this regardless of using static or DHCP. +
+`# systemctl enable systemd-networkd`
+====
+___
+=== User creation, and group(s) assignment
+> [All user groups are listed here, under the 'baselayout' provider.](https://api.gentoo.org/uid-gid.txt) +
+*The 'acct' provider usually is for software that use custom group(s) functionality, such is the case for libvirt.*
+
+Group | Affected | Description 
+--- | --- | ---
+audio | /dev/audio[1-9], /dev/snd/*, /dev/rtc0 | Direct access to sound hardware, required to make ALSA and OSS work in remote sessions. [The security implications of using this group.](https://wiki.ubuntu.com/Audio/TheAudioGroup)
+disk | /dev/sd[a-z][1-9] | Direct access to storage disks, such as HDDs and SSDs. 
+floppy | /dev/fd[0-9] | Direct access to floppy disks. 
+kvm | /dev/kvm | Access to the KVM hypervisor. 
+users | N/A | Standard users group.
+video | /dev/fb0 (or /dev/fb/0), /dev/misc/agpgart | Access to the framebuffer, 2D/3D hardware acceleration, and video capture devices.
+wheel | N/A | Can be used to grant users elevation to superuser (pseudo root) permission, and will be used for such.
+plugdev | N/A | Allows non-superuser mounting of cameras, along with the PTP and MTP protocols, which are useful for Android phones.
+realtime | N/A | Allows soft realtime scheduling, which is used for audio exclusively in this guide.
+usb | N/A | Allows non-superuser mounting of removable disks? (Not sure)
+
+`# groupadd -g 272 plugdev` +
+If using the plugdev group, it needs to be created.
+> `acct-group/plugdev` *may be pulled in by packages that utilize the plugdev group; since the 'plugdev' group with the correct GID is already created,* `acct-group/plugdev` *does nothing in practice.*
+
+`# useradd -m -G disk,users,kvm,video,wheel,plugdev -s /bin/bash admin` +
+Create a user, keep it short, such as 'admin'.
+
+`# passwd admin` +
+Assign a password to the new user account.
+
+`# nvim /etc/doas.conf` +
+The most secure and simple privilege escalator tool.
+> `$ man doas.conf` *for information on these options.*
+```
+permit persist keepenv :wheel
+```
+`# passwd -l root` +
+Lock the 'root' account, it's not required when using doas.
+
+=== Installing the Linux Kernel and GRUB2 Bootloader
+`$# df -ha` +
+If you forgot if UEFI is supported, check again.
+
+`$# eix gentoo-sources` +
+The version highlighted is the one used. +
+`# emerge gentoo-sources` +
+Install the Linux kernel with some patches.
+
+Check which kernel is selected for the /usr/src/linux symbolic link. +
+`$# eselect kernel list` +
+`$# cd /usr/src/linux`
+
+`# kergen -dg` +
+Plug in every hardware device you'll be using now, and leave them plugged until after Kergen is done.
+> *If a device has no wire, such as Wiimotes, you need to look up the device(s) on the Gentoo wiki to enable their compatibility. For software compatibility, kergen will change nothing, so getting OpenVPN working requires the same process as Wiimotes would.*
+
+`# cat /BIG/.config1 >> .config` +
+Append contents of the '.config1' file to the bottom of the '/usr/src/linux/.config' file.
+
+> *`[!]` Change these settings that Kergen turned on, to =m (module) or =n (disable); an example would be to disable DRM_NOUVEAU if using a nVidia GPU for only VFIO pass-through: +
+DRM_RADEON, DRM_AMDGPU, DRM_NOUVEAU, DRM_I195, DRM_VMWGFX, DRM_VBOXVIDEO, FB_RADEON, FB_NVIDIA. +
+Jump to the bottom of the `.config` file, using the 'gg' key sequence.*
+
+`# nvim .config`
+```
+# Change the contents inserted from Kergen and '.config1' as needed.
+```
+Required everytime after directly modifying a kernel config file; not doing so forces `make oldconfig` on a `make` for the config file to be parsable, which is very tedious. +
+`# make nconfig`
+> *Press the 'h' key to show the description of the currently selected kernel option.*
+
+Disable unused devices in: +
+-> Device Drivers -> HID support -> Special HID drivers +
+-> Device Drivers -> X86 Platform Specific Device Drivers +
+-> Device Drivers -> Network device support -> Wireless LAN
+
+Change -j8 to `nproc`'s output. +
+`# make -j8 && make install modules_install`
+
+> *If DEPMOD wasn't outputted, the command has been entered in wrong, or the makejob failed.*
+
+Generate static filesystem information, which is required for correctly utilizing  the filesystem(s) on disk(s). +
+`# cp /BIG/scripts/genfstab.sh /usr/local/bin/genfstab` +
+`# chmod +x /usr/local/bin/genfstab` +
+`# genfstab -U / >> /etc/fstab`
+
+`# nvim /etc/fstab` +
+Edit the File System TABles; remove the 'discard' flag(s) if present.
+
+`# cp /BIG/udev-rules/60-iosched.rules /etc/udev/rules.d/60-iosched.rules` +
+Use the best I/O scheduler based on disk type.
+
+`# emerge -av grub` +
+The GRUB2 bootloader, since Gentoo automatically detects the required GRUB_PLATFORMS, further action for other distros aren't required for Gentoo.
+
+>*While in Neovim (nvim): +
+:read !blkid|rg root +
+:read !blkid|rg LUKS*
+
+`# nvim /etc/default/grub`
+```
+GRUB_DISABLE_OS_PROBER=true
+# Don't detect other operating systems, which is the intended setup.
+GRUB_ENABLE_CRYPTODISK=y
+# Required to decrypt the LUKS1 (encrypted) volume.
+
+#> Example: rd.luks.uuid=luks-9dc64c25-6ab6-48a7-88b8-91d59af43f76
+
+GRUB_CMDLINE_LINUX="init=/sbin/openrc-init quiet usbcore.autosuspend=-1 apparmor=1 security=apparmor root=UUID=[RG-ROOT-RESULT] rd.luks.uuid=luks-[RG-LUKS-RESULT] rd.luks.allow-discards"
+
+# [systemd]: Remove 'init=/sbin/openrc-init'.
+```
+[UEFI] +
+`# grub-install --efi-directory=/efi --recheck --removable` +
+[MBR] +
+`# grub-install /dev/EXAMPLE --recheck`
+
+The LUKS (slot 1) key is used to automatically unlock on initramfs initialization, which is safe since GRUB2 demands a slot 0 password before decrypting to access the boot entries (along with initramfs). +
+`# mkdir /root/.keyfiles` +
+`# touch /root/.keyfiles/boot` +
+`# chmod 600 /root/.keyfiles/boot` +
+`# dd if=/dev/urandom of=/root/.keyfiles/boot bs=1024 count=1` +
+`# cryptsetup -v luksAddKey /dev/EXAMPLE2 /root/.keyfiles/boot`
+
+[systemd] +
+`# nvim /etc/crypttab`
+> `:read !blkid|rg LUKS*`
+```
+cr_example2 UUID=[RG-LUKS-RESULT] /root/.keyfiles/boot
+```
+[OpenRC] +
+`# nvim /etc/conf.d/dmcrypt`
+> `:read !blkid|rg LUKS*`
+```
+target='data'
+source=UUID='[RG-LUKS-RESULT]'
+key='/root/.keyfiles/boot'
+```
+`# chmod -R g-rwx,o-rwx /boot` +
+Prevent non-SU users reading the initrd and extracting the key file. +
+`# cp /BIG/dracut.conf /etc/dracut.conf.d/custom.conf` +
+`# dracut --kver 5.6.12-gentoo` +
+DEPMOD shows the Linux kernel name; alternatively, list them with `$# exa /lib/modules`.
+
+`# grub-mkconfig -o /boot/grub/grub.cfg` +
+Generate the bootloader entries.
+
+`# rm /stage3*` +
+Dispose of the bootstrap archive, there's no practical use for it now.
+
+`# mv /BIG /home/admin/BIG && chown -R admin. /home/admin/BIG` +
+Move 'BIG' directory to home directory owned by the new user created, and assign RW (read & write) permissions to that user; change 'admin' if that is not the username.
+
+`# eselect repository enable torbrowser` +
+`# emerge --sync torbrowser` +
+`# eix-update` +
+`# cp BIG/sets/torbrowser /etc/portage/sets` +
+`# emerge -av @torbrowser` +
+The Tor Browser is the best browser for anonymity on the clearnet, and its in binary (compiling ourselves is a unique fingerprint), so it will install extremely quick. This will be used to access these wiki pages after the reboot.
+
+<details><summary>nVidia's proprietary driver
+
+> *Doesn't cover installation of Vulkan beta versions.*</summary>
+
+The `uvm` USE flag allows NVENC and CUDA to function correctly. +
+`# emerge -av nvidia-drivers` +
+`# cp ~/BIG/nvidia.conf /etc/modprobe.d/` +
+Copying over and utilizing the custom nVidia kernel module settings.
+
+`# nvim /etc/modprobe.d/nvidia.conf`
+> `# cat /proc/mtrr` +
+*If all regs are 'uncachable', then NVreg_UsePageAttributeTable=1 is required!*
+
+`# eselect opengl set nvidia` +
+`# eselect opencl set nvidia` +
+Extra info here: https://wiki.gentoo.org/wiki/NVIDIA/nvidia-drivers
+
+___
+</details>
+
+<details><summary>VirtualBox Guest Additions
+
+> *Provides Shared Folders, Shared Clipboard, Drag and Drop, and 3D video acceleration.*</summary>
+
+`# emerge virtualbox-guest-additions xf86-video-vmware`
+
+If using Shared Folders is desired. +
+`# gpasswd -a $USER vboxsf`
+
+*[!]* If visual artifacts are present, use the VBoxSVGA graphics controller.
+
+___
+</details>
+
+<details><summary>VMWare Guest Additions
+
+> *Provides the same functionality as VirtualBox Guest Additions.*</summary>
+
+`# emerge open-vm-tools gtkmm xf86-input-vmmouse xf86-video-vmware`
+
+___
+</details>
+
+`reboot` +
+The reboot.
+
+=== Desktop Setup
+
+`$# tzselect` +
+Listing timezones.
+
+> *Avoid /usr/share/zoneinfo/Etc/GMT timezones! +
+For instance, GMT-5 (EST) is actually GMT+5 (PKT), and DST is ignored.*
+
+Setting a timezone. +
+[systemd] +
+`# timedatectl set-timezone America/New_York` +
+[OpenRC] +
+`# ln -sf /usr/share/zoneinfo/America/New_York /etc/localtime`
+
+[systemd] +
+`$# localectl list-keymaps` +
+List all available keyboard layouts. +
+`# localectl set-keymap us` +
+Set the default TTY keymap, leave as is for the default 'us' QWERTY. +
+`# localectl set-x11-keymap us` +
+Set the default Xorg (for graphical environments; applies to Wayland too) keymap. +
+[OpenRC] +
+`$# exa -l /usr/share/keymaps/i386` +
+The keymaps are grouped by layout; `exa -l /usr/share/keymaps/i386/qwerty` would show all QWERTY keyboard layouts.
+
+`# nvim /etc/conf.d/keymaps` +
+Set the keyboard layout, leave as is for the default 'us' QWERTY.  
+
+`# fcrontab -e` +
+Enabling TRIM for all (-a) supported disks, maintaining the speed of them; runs once per week unless otherwise specified, such as '@ 1d' or '@daily'.
+```
+@ 1w /sbin/fstrim -a
+```
+[systemd] +
+`# rm /etc/sysctl.d/99-sysctl.conf` +
+Remove systemd's example sysctl config.
+
+`$# cd /home/admin` +
+Change 'admin' if that is not the username. +
+`# cp BIG/99-custom.conf /etc/sysctl.d` +
+Use the custom sysctl config instead. +
+`# nvim /etc/sysctl.d/99-custom.conf`
+
+Fonts cannot be skipped if using a graphical environment, which this guide considers the case from the start. +
+`# mkdir /etc/portage/sets` +
+`# cp BIG/sets/fonts /etc/portage/sets` +
+`# emerge -av @fonts`
+
+`# eselect infinality set ultimate-ms` +
+`# eselect lcdfilter set ultimate` +
+`# sh BIG/scripts/fontconfig-disable-all.sh` +
+`$# eselect fontconfig list` +
+"[26]  52-infinality.conf". +
+`# eselect fontconfig enable 26`
+
+[OpenRC] +
+`# cd /etc/init.d`
+```
+# for n in `seq 1 6`; do ln -s agetty agetty.tty{1..6}; rc-config add agetty.tty{1..6} default; done`
+#? The formatting of this command breaks the wiki; command has to be ran with superuser (#).
+```
+The TTY will not work without these services for OpenRC's init functionality (replaces sysvinit).
+
+Automatic Linux logins for TTY1; no tangible security risks with disk encryption for single user systems. +
+[systemd] +
+`# systemctl edit getty@.service`
+```
+[Service]
+ExecStart=
+# If 'admin' is not the correct username, change it.
+ExecStart=-/sbin/agetty -J -a admin %I $TERM
+```
+[OpenRC] +
+`# nvim /BIG/conf.d/tty` +
+If 'admin' is not your username, change it. +
+`# tee /etc/conf.d/agetty.tty{1..6} < /BIG/conf.d/tty >/dev/null` +
+Piping to /dev/null at the end silences the stdout of tee, so tee doesn't display the same contents 6 times in the current terminal.
+
+<details><summary>AMD open-source driver
+
+>*Already integrated into the Linux kernel, but requires an additional package for 2D display server (Xorg & Wayland) acceleration.*</summary>
+
+Default for GCN2 and older. +
+`# emerge xf86-video-ati`
+
+Can be forced for use on GCN1 & GCN2. +
+`# emerge xf86-video-amdgpu`
+
+`#EDIT /etc/default/grub` +
+For the `amdgpu` driver only.
+```
+# Add to 'GRUB_CMDLINE_LINUX_DEFAULT'
+amdgpu.exp_hw_support=1 amdgpu.audio=0 amdgpu.disp_priority=2 amdgpu.msi=1
+# Remove amdgpu.exp_hw_support if using GCN3 or newer.
+# amdgpu.audio=1 if using the GPU's onboard Intel HD audio.
+# Remove amdgpu.disp_priority if displaying monitor input on a nVidia or Intel iGPU first is desired.
+```
+`# grub-mkconfig -o /boot/grub/grub.cfg`
+
+</details>
+
+<details><summary>Intel open-source driver
+
+>*Same situation as AMD's driver.*</summary>
+
+`# emerge xf86-video-intel`
+
+</details>
+
+<details><summary>Spice VDAgent
+
+> *The Guest Additions for the SPICE server, meant for use with QEMU; provides dynamic resolution (based on window size), shared clipboard, and shared folders (this doesn't get used).*</summary>
+
+`# emerge spice-vdagent` +
+Use Spice VDAgent immediately; it may be ran on boot automatically? (Check for OpenRC). +
+`# spice-vdagentd`
+
+</details>
+
+`# gpasswd -a admin realtime` +
+Allowing PulseAudio and JACK2 to use soft realtime priority. +
+`# mkdir /etc/pulse/daemon.conf.d` +
+Lowering PulseAudio's sound delay as low as it can go. +
+`# cp BIG/99-lowlatency.conf /etc/pulse/daemon.conf.d` +
+`# nvim /etc/pulse/daemon.conf.d/99-lowlatency.conf`
+
+`# nvim /etc/pulse/default.pa` +
+`tsched=1` guarantees audio playback consistency on any supported configuration, but makes latency reduction impossible.
+```
+load-module module-udev-detect tsched=0
+```
+Run `nproc` to see the total CPU logical core, the example considers the max as '8' (common for Intel CPUs); this specifies the MAKEFLAGS outside of Portage (and software that read Portage's MAKEOPTS values) for privileged users. Also allow the usage of a custom QT5 theming engine (Kvantum), and the QT5 configuration tool.
+> *GNUMAKEFLAGS is used instead of MAKEFLAGS since that's what was outputted from:* +
+`$# strings /usr/bin/make | rg MAKEFLAGS`
+
+[systemd] +
+`# nvim /etc/systemd/system.conf`
+```
+DefaultEnvironment="GNUMAKEFLAGS=-j8 -l8" "MAKEFLAGS=-j8 -l8" QT_QPA_PLATFORMTHEME=qt5ct
+```
+`# nvim /etc/systemd/user.conf` +
+Apply the same change for unprivileged users as well. +
+[OpenRC] +
+`#EDIT /etc/env.d/99local`
+```
+GNUMAKEFLAGS="-j8 -l8" 
+MAKEFLAGS="-j8 -l8"
+QT_QPA_PLATFORMTHEME="qt5ct"
+```
+> *Compositors (such as wlroots for Sway and Wayfire) interfacing the Wayland protocol are more secure than all Xorg WMs, and have the best tear-free rendering implementation.*
+
+Pick a graphical environment; Wayland cannot be used on nVidia GPUs. +
+*Wayland WM: [Sway](WM/Sway)* +
+*Xorg WM: [Window Maker](WM/Window-Maker)*
+
+Exit superuser shell: *`exit`*
+
+`$ cp ~/BIG/.bashrc ~` +
+Execute shell scripts from /etc/profile.d for custom aliases to work.
+
+`$ echo needs_root_rights = no | doas tee /etc/X11/Xwrapper.config` +
+Root-less Xorg (graphical host), increases security and lowers memory usage; this only works since `logind` is used (`elogind` for inits that aren't systemd).
+> *'tee' has to be used since this is a non-superuser shell, with '|' being the pipe that 'tee' reads from.*
+
+`# emerge -av jack2 qjackctl` +
+`$ cp ~/BIG/scripts/start-jackdbus.sh ~` +
+`$ cat /proc/asound/cards` +
+Print out ALSA device names. +
+`$ nvim ~/start-jackdbus.sh` +
+If the ALSA device name is not '0', change 'hw:0' to the actual name. 
+
+`#EDIT /etc/pulse/default.pa`
+```
+set-default-sink jack_out
+set-default-source jack_in
+```
+
+QjackCtl will only work while using a graphical environment (Window Manager).
+* `$ qjackctl`
+* Setup -> Change the interface to the device you use, as JACK2 will fail to start without an interface selected
+* Frames/Period: 64, Periods/Buffer: 4
+* Misc ->  +
+Enable D-Bus interface  +
+Enable JACK D-Bus interface
+* Exit QjackCtl then run it again.
+* Press the Start button, and do an audio test; Audacious has switchable support between PulseAudio, and pure JACK2 audio outputs, see its installation instructions in [2.0 Recommendations](2.0-Recommendations).
+* If the audio is fucked, raise the Periods/Buffer by intervals of 1; try keeping Periods/Buffer and Frames/Period in such a way that minimizes audio delay.
+
+Now, wire the inputs (source) and outputs (sink) correctly. +
+Use Ctrl + Mouse1 to move the view, Ctrl + Mouse2 (mouse wheel) to zoom in/out. +
+{TODO: PUT SCREENSHOT HERE}
+
+___

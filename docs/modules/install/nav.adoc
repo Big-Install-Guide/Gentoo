@@ -1,0 +1,2 @@
+* xref:preparations.adoc[Preparing installation environment]
+* xref:base-setup.adoc[Gentoo base setup]

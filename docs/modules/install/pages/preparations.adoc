@@ -1,0 +1,57 @@
+:title: Preparing installation environment
+:experimental:
+
+
+>*Before continuing, read "Guide to the guide" in [3.0 Explanations](3.0-Explanations). All instructions assume this has been read.*
+
+`$ ping gentoo.org` +
+Open a terminal, and ensure internet connection is established.
+
+=== Artix USB Setup
+
+*Enter superuser: `sudo -i`*
+
+`# passwd artix` +
+Change the default password. +
+`# passwd -l root` +
+Lock the root account.
+
+`# pacman -Sy git hdparm links` +
+Required software for the Gentoo installation.
+
+`# /etc/init.d/lvm start` +
+Fully initialize LVM2, gets rid of "WARNING: Failed to connect to lvmetad. Falling back to device scanning."
+
+*Exit superuser: `exit`*
+___
+=== Optional software.
+
+ALSA is not supported by Firefox since 52 (7th March 2017); this is if audio support for Tor Browser is desired. +
+`# pacman -S pulseaudio pavucontrol` +
+`$ pulseaudio -D` +
+Run PulseAudio as an unprivileged daemon.
+
+Installing Yay binary (Arch User Repository helper). +
+`# pacman -S binutils fakeroot` +
+`$ git clone https://aur.archlinux.org/yay-bin.git` +
+`$ cd yay-bin` +
+`$ makepkg -si`
+
+`$ gpg --auto-key-locate nodefault,wkd --locate-keys torbrowser@torproject.org` +
+`$ yay -S tor-browser`
+
+___
+<details><summary>Yay
+
+> *NEEDS MORE INFO* +
+*An AUR helper, and a Pacman frontend.*</summary>
+
+Launch options: +
+`--devel` Update GIT packages based on commit history, instead of PKGBUILD date; most GIT PKGBUILDS don't update for long periods of time.
+
+`-c` Recursively removes all packages entirely dependent on the target packages, *with* force. +
+`-s` Recursively removes all packages entirely dependent on the target packages, *without* force.
+
+</details>
+
+___

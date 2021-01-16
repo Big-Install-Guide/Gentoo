@@ -1,79 +1,58 @@
-// Settings
-:title: Big Install Guide
-:reproducible:
-:nofooter:
-:tabsize: 4
-:imagesdir: imgs
-:icons: font
-:stylesdir: css
-:stylesheet: asciidoctor.css
 :experimental:
 
-TIP: *Terms* +
+= Gentoo section
 
 [discrete]
 === Follow Gentoo Linux installation guide in order (recommended)
-link:Gentoo.html[From start to finish; single-page view.]
+xref:latest@gentoo:install:preparations.adoc[From start to finish; single-page view.]
 
-Unicode symbols
-```
-⥣
-Up arrow
-⥥
-Down arrow
-⥢
-Left arrow
-⥤
-Right arrow
-↵ 
-Enter
-↹ 
-Tab
-```
 === Guide to the guide
-
+[%collapsible]
+====
+[discrete]
+==== Unicode symbols
+* ⥣ kbd:[Up Arrow] +
+⥥ kbd:[Down Arrow]
+* ⥢ kbd:[Left Arrow] +
+⥤ kbd:[Right Arrow]
+* ↵ kbd:[Enter] +
+↹ kbd:[TAB]
 
 [discrete]
 ==== Non-unicode symbols
-- ```*****``` +
+* `***` +
 Matches any zero or more characters after the wildcard. +
-- ```**?**``` +
+* `*?*` +
 Matches any one character it's in place of, or is used to select in a list of desired characters if one in the list occurs: ?(neg|pos). +
-- ```**\**``` + 
-Used as a delimiter. Try ```echo "test" > testfile01```, the " symbols are removed; ```echo \"\test\"\ > testfile01``` maintains the " symbols.
+* `*\*` +
+Used as a delimiter. Try `echo "test" > testfile01`, the " symbols are removed; `echo \"\test\"\ > testfile01` maintains the " symbols.
 
+[discrete]
 ==== Running commands
-- `# command` +
+* `# command` +
 Command requires superuser to work as intended, or at all.
-
-- `$ command` +
+* `$ command` +
 Can only be ran non-privileged.
-
-- `$# command` +
+** `$# command` +
 Can be ran privileged or non-privileged; same result.
-
-- `$/# command` +
+* `$/# command` +
 Different use cases for running privileged, or non-privileged.
-
-- `# $(example)` +
+* `# $(example)` +
 Still ran privileged.
-
-- `$ $(example)` +
+** `$ $(example)` +
 Still ran non-privileged.
 
-TTY navigation
-```
-Alt Left/Right arrow keys
-- Switch to TTY in a given arrow key direction.
-Ctrl Alt F1
-- Switch to TTY 1, goes up to 6 (F6) by default, useful +
-for jumping to a specific TTY while in a unresponsive WM, so the WM can +
-then be terminated.
-Home
-- Jump to start of line.
-End
-- Jump to end of line.
-```
+.TTY navigation
+* Alt Left/Right arrow keys +
+Switch to TTY in a given arrow key direction.
+* kbd:[Ctrl]&kbd:[Alt]&kbd:[F1] +
+Switch to TTY 1, goes up to 6 (F6) by default; typically used to terminate the Window Manager if it's unresponsive.
+
+* kbd:[Home] +
+Jump to start of line.
+* kbd:[End] +
+Jump to end of line.
+
 [discrete]
 ==== Neovim keybindings
 - ESC +
@@ -114,3 +93,4 @@ G
 - Jump to bottom of file
 gg
 - Jump to top of file
+====
