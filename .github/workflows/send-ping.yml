@@ -17,3 +17,4 @@ jobs:
           token: ${{ secrets.LIMITED_PAT }}
           repository: ${{ matrix.repo }}
           event-type: ping
+          client-payload: '{"ref": "${{ github.ref }}", "sha": "${{ github.sha }}"}'
