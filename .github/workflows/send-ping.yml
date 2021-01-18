@@ -1,25 +1,17 @@
-name: Send ping to update 'Website'
+name: Send ping to update website
 
 on:
   push:
   repository_dispatch:
 
 jobs:
-  ping-pong:
+  PING:
     runs-on: ubuntu-latest
     steps:
-      - name: PING - Dispatch initiating repository event
+      - name: Ping 'Website' repo
         if: github.event.action != 'pong'
         run: |
           curl --request POST https://api.github.com/repos/Big-Install-Guide/Website/dispatches \
-          --header 'Accept: application/vnd.github.everest-preview+json' \
+          --header 'Accept: application/vnd.github.v3+json' \
           --user ${{ secrets.LIMITED_PAT }} \
           --data '{"event_type": "ping", "client_payload": { "repository": "'"$GITHUB_REPOSITORY"'" }}'
-      - name: ACK - Acknowledge pong from remote repository
-        if: github.event.action == 'pong'
-        run: |
-          echo "PONG received from '${{ github.event.client_payload.repository }}'" \
-          && curl --request POST https://api.github.com/repos/Big-Install-Guide/Website/dispatches \
-          --header 'Accept: application/vnd.github.everest-preview+json' \
-          --user ${{ secrets.LIMITED_PAT }} \
-          --data '{"event_type": "ack", "client_payload": { "repository": "'"$GITHUB_REPOSITORY"'" }}'
