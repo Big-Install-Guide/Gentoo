@@ -6,15 +6,12 @@ on:
 
 jobs:
  dispatch:
-    strategy:
-      matrix:
-        repo: ['Big-Install-Guide/Website']
     runs-on: ubuntu-latest
     steps:
       - name: Repository Dispatch PING
-        uses: peter-evans/repository-dispatch@v1.1.3
+        uses: ghost-420/trigger-workflow-and-wait
         with:
-          token: ${{ secrets.LIMITED_PAT }}
-          repository: ${{ matrix.repo }}
-          event-type: ping
-          client-payload: '{"ref": "${{ github.ref }}", "sha": "${{ github.sha }}"}'
+          github_token: ${{ secrets.LIMITED_PAT }}
+          repo: Big-Install-Guide/Website
+          event_type: ping
+          client_payload: '{"ref": "${{ github.ref }}", "sha": "${{ github.sha }}"}'
