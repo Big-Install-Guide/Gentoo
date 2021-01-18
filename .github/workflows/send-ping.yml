@@ -12,6 +12,7 @@ jobs:
         uses: ghost-420/trigger-workflow-and-wait@732350e91642a0a79b3aa2a050b4269ff8e576a5
         with:
           github_token: ${{ secrets.LIMITED_PAT }}
-          repo: Big-Install-Guide/Website
-          event_type: ping
+          owner: Big-Install-Guide
+          repo: Website
+          workflow_file_name: receive-ping.yml
           client_payload: '{"ref": "${{ github.ref }}", "sha": "${{ github.sha }}"}'
