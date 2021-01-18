@@ -1,4 +1,4 @@
-name: Send ping to update Website
+name: Send ping to update 'Website'
 
 on:
   push:
