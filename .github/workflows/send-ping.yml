@@ -12,5 +12,5 @@ jobs:
           --request POST \ 
           --header 'Accept: application/vnd.github.v3+json' \
           --user ${{ secrets.LIMITED_PAT }} \
-          --data '{"event_type": "ping", "client_payload": { "repository": "'"$GITHUB_REPOSITORY"'" }}'
+          --data '{"event_type": "ping", "client_payload": { "repository": "'"$GITHUB_REPOSITORY"'" }}' \
           https://api.github.com/repos/Big-Install-Guide/Website/dispatches
