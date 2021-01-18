@@ -7,6 +7,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Ping 'Website' repo
+        if: github.event.action != 'PONG'
         run: |
           curl --request POST \ 
           --header 'Accept: application/vnd.github.v3+json' \
