@@ -9,8 +9,8 @@ jobs:
       - name: Ping 'Website' repo
         run: |
           curl \
+          --request POST \ 
           --header 'Accept: application/vnd.github.v3+json' \
           --user ${{ secrets.LIMITED_PAT }} \
           --data '{"event_type": "ping", "client_payload": { "repository": "'"$GITHUB_REPOSITORY"'" }}'
-          --request POST \ 
           https://api.github.com/repos/Big-Install-Guide/Website/dispatches
