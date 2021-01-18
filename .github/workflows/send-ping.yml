@@ -7,10 +7,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Ping 'Website' repo
-        if: github.event.action != 'PONG'
+        #if: github.event.action != 'PONG'
         run: |
-          curl --request POST \ 
+          curl --request POST 'https://api.github.com/repos/Big-Install-Guide/Website/dispatches' \
           --header 'Accept: application/vnd.github.v3+json' \
           --user '${{ secrets.LIMITED_PAT }}' \
-          --data '{"event_type": "ping", "client_payload": { "repository": "'"$GITHUB_REPOSITORY"'" }}' \
-          --url "https://api.github.com/repos/Big-Install-Guide/Website/dispatches"
+          --data '{"event_type": "ping", "client_payload": { "repository": "'"$GITHUB_REPOSITORY"'" }}'
