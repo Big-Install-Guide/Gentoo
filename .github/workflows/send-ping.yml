@@ -1,17 +1,16 @@
 name: Send ping to update website
-
 on:
   push:
   repository_dispatch:
-
 jobs:
   PING:
     runs-on: ubuntu-latest
     steps:
       - name: Ping 'Website' repo
-        if: github.event.action != 'pong'
         run: |
-          curl --request POST https://api.github.com/repos/Big-Install-Guide/Website/dispatches \
+          curl \
           --header 'Accept: application/vnd.github.v3+json' \
           --user ${{ secrets.LIMITED_PAT }} \
           --data '{"event_type": "ping", "client_payload": { "repository": "'"$GITHUB_REPOSITORY"'" }}'
+          --request POST \ 
+          https://api.github.com/repos/Big-Install-Guide/Website/dispatches
