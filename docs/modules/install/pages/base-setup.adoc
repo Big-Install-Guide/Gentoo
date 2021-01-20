@@ -1,3 +1,5 @@
+:experimental:
+xref:partial$guide-lingo.adoc[]
 
 === Gentoo Disk Setup
 
@@ -9,11 +11,10 @@ List partitions and their assigned [filesystem & label](from the -f parameter). 
 `$ lsblk` +
 Even if unmounted, show the max partition sizes; for additional perspective.
 
-[%collapsible]
-.ATA Secure Erase
-NOTE: Issues the "SECURITY_ERASE" or "SECURITY_ERASE_ENHANCED" instruction to the targeted SSD's firmware, marking all the SSD's cells as empty, removing all data and potentially restoring the SSD to factory default write performance.
-
-
+Issues the "SECURITY_ERASE" or "SECURITY_ERASE_ENHANCED" instruction to the targeted SSD's firmware, marking all the SSD's cells as empty, removing all data and potentially restoring the SSD to factory default write performance.
+++++
+<details><summary>ATA Secure Erase</summary>
+++++
 WARNING: Do not attempt a Secure Erase for SSDs connected through any USB adapter or SAS/RAID card!
 * After a successful Secure Erase, `lsblk` will still show the same partition tables. Secure Erase does not tell `lsblk` that a disk has been wiped, and is using old information; the `gdisk` or `fdisk` tool will correctly show that the disk is empty.
 * -I is a capital i; some fonts don't display this correctly.
@@ -36,12 +37,16 @@ Check if there is still a master password assigned.
 `# hdparm --security-disable Kero /dev/EXAMPLE` +
 If Secure Erase succeeded, the master password is removed; if not (or Secure Erase failed), remove the password manually.
 
-___
+++++
 </details>
+++++
 
-Has to be done if ATA Secure Erase wasn't used. +
-`# wipefs -a /dev/EXAMPLE` +
-Clears the partition tables for a specified disk. 
+___
+
+.Must be done if ATA Secure Erase wasn't used. +
+`# wipefs -a /dev/EXAMPLE`
+
+NOTE: Removes all partition tables for a specified disk. 
 
 The fastest method for erasing files (for non-SSDs), while providing protection against disk forensics; running on an SSD will shorten its lifespan slightly. +
 `# cryptsetup open --type plain -d /dev/urandom /dev/EXAMPLE cleanit` +
@@ -52,12 +57,12 @@ ___
 `$# df -ha | grep efi` +
 If efivarsfs is not present, support for UEFI is missing; refer to your motherboard's manual if this is the case.
 
-*[!]* If you fuck up, q ↵ to exit; nothing will happen if the partition tables haven't been written to disk yet.
+CAUTION: If you fuck up, kbd:[q] kbd:[↵] to exit; partition tables are not written to disk before confirmation from kbd:[w] kbd:[↵].
 
+++++
 <details><summary>UEFI
-
-> *GPT is default.*
 </summary>
+++++
 
 `# gdisk /dev/EXAMPLE` +
 Specify the disk to create partition tables on.
@@ -91,7 +96,9 @@ Last sector: +60M ↵
 Hex code or GUID: ef00 ↵
 ```
 Partition 2 - Allocate rest of the disk for the LUKS partition, which will later contain LVM2-based (virtual) partitions.
-> *The LUKS (8309) Hex code isn't used as it's too specific for a partition that contains no filesystem (on the outside); da00 (Non-FS Type) currently does not exist in gptfdisk (gdisk).*
+
+NOTE: The LUKS (8309) Hex code isn't used as it's too specific for a partition that contains no filesystem (on the outside); da00 (Non-FS Type) currently does not exist in gptfdisk (gdisk).
+
 ```
 Command: n ↵
 Partition number: ↵
@@ -104,9 +111,11 @@ Hex code or GUID: ↵
 Command: w ↵
 Do you want to proceed? (Y/N): y ↵
 ```
+++++
 </details>
+++++
 
-*[!] MBR instructions are unverified, and is not currently full disk encryption as UEFI is.*
+CAUTION: MBR instructions are unverified, and don't use full disk encryption (only UEFI does).
 
 <details><summary>MBR with GPT partitions
 

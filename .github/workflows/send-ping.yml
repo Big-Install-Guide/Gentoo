@@ -7,7 +7,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Ping 'Website' repo
-        #if: github.event.action != 'PONG'
         run: |
           curl --request POST 'https://api.github.com/repos/Big-Install-Guide/Website/dispatches' \
           --header 'Accept: application/vnd.github.v3+json' \
